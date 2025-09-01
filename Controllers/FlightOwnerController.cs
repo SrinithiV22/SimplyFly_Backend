@@ -190,6 +190,79 @@ namespace SimplyFly.Api.Controllers
             }
         }
 
+        // PUT: api/FlightOwner/bookings/{bookingId}/approve-refund
+        [HttpPut("bookings/{bookingId}/approve-refund")]
+        [Authorize(Roles = "Flightowner")]
+        public async Task<IActionResult> ApproveRefund(int bookingId)
+        {
+            try
+            {
+                var booking = await _context.Bookings.FindAsync(bookingId);
+                if (booking == null)
+                {
+                    return NotFound(new { message = "Booking not found" });
+                }
+
+                // Check if booking is in RequestedToCancel status
+                if (booking.Status != "RequestedToCancel")
+                {
+                    return BadRequest(new { message = "Booking is not in cancellation request status" });
+                }
+
+                // Update status to Refunded
+                booking.Status = "Refunded";
+                booking.UpdatedAt = DateTime.Now;
+                await _context.SaveChangesAsync();
+
+                return Ok(new { 
+                    message = "Refund approved successfully", 
+                    bookingId = bookingId,
+                    status = "Refunded",
+                    refundAmount = booking.TotalAmount
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error approving refund", error = ex.Message });
+            }
+        }
+
+        // PUT: api/FlightOwner/bookings/{bookingId}/reject-refund
+        [HttpPut("bookings/{bookingId}/reject-refund")]
+        [Authorize(Roles = "Flightowner")]
+        public async Task<IActionResult> RejectRefund(int bookingId)
+        {
+            try
+            {
+                var booking = await _context.Bookings.FindAsync(bookingId);
+                if (booking == null)
+                {
+                    return NotFound(new { message = "Booking not found" });
+                }
+
+                // Check if booking is in RequestedToCancel status
+                if (booking.Status != "RequestedToCancel")
+                {
+                    return BadRequest(new { message = "Booking is not in cancellation request status" });
+                }
+
+                // Update status back to Confirmed
+                booking.Status = "Confirmed";
+                booking.UpdatedAt = DateTime.Now;
+                await _context.SaveChangesAsync();
+
+                return Ok(new { 
+                    message = "Refund request rejected", 
+                    bookingId = bookingId,
+                    status = "Confirmed"
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error rejecting refund", error = ex.Message });
+            }
+        }
+
         // GET: api/FlightOwner/bookings/{userId}
         [HttpGet("bookings/{userId}")]
         public async Task<ActionResult<IEnumerable<object>>> GetBookingsByFlightOwner(int userId)

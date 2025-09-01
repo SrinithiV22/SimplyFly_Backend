@@ -195,10 +195,10 @@ namespace SimplyFly.Api.Controllers
             }
         }
 
-        // DELETE: api/bookings/{id} (Cancel booking)
-        [HttpDelete("{id}")]
-        [Authorize] // Temporarily remove role requirement for debugging
-        public async Task<IActionResult> CancelBooking(int id)
+        // PUT: api/bookings/{id}/request-cancel (Request cancellation)
+        [HttpPut("{id}/request-cancel")]
+        [Authorize] // User can request cancellation
+        public async Task<IActionResult> RequestCancelBooking(int id)
         {
             try
             {
@@ -217,50 +217,25 @@ namespace SimplyFly.Api.Controllers
                     return Forbid("You can only cancel your own bookings.");
                 }
 
-                Console.WriteLine($"Attempting to cancel booking {id}");
-
-                // Check if there are any passenger details for this booking
-                var passengerDetailsCount = await _context.PassengerDetails
-                    .Where(p => p.BookingId == id)
-                    .CountAsync();
-                
-                Console.WriteLine($"Found {passengerDetailsCount} passenger details for booking {id}");
-
-                // Delete passenger details first using raw SQL to avoid EF tracking issues
-                if (passengerDetailsCount > 0)
+                // Check if booking is already cancelled or requested for cancellation
+                if (booking.Status == "Cancelled" || booking.Status == "RequestedToCancel")
                 {
-                    var deletedPassengerDetails = await _context.Database
-                        .ExecuteSqlRawAsync("DELETE FROM PassengerDetails WHERE BookingId = {0}", id);
-                    Console.WriteLine($"Deleted {deletedPassengerDetails} passenger detail records");
+                    return BadRequest($"Booking is already {booking.Status.ToLower()}");
                 }
 
-                // Store booking info for response
-                var bookingInfo = new
-                {
-                    BookingId = booking.BookingId,
-                    FlightRoute = booking.Route,
-                    TotalAmount = booking.TotalAmount,
-                    DepartureTime = booking.DepartureTime
-                };
+                Console.WriteLine($"Requesting cancellation for booking {id}");
 
-                // Now delete the booking using raw SQL as well
-                var deletedBookings = await _context.Database
-                    .ExecuteSqlRawAsync("DELETE FROM Bookings WHERE BookingId = {0}", id);
-                
-                Console.WriteLine($"Deleted {deletedBookings} booking records");
+                // Update booking status to "RequestedToCancel" instead of deleting
+                booking.Status = "RequestedToCancel";
+                booking.UpdatedAt = DateTime.Now;
+                await _context.SaveChangesAsync();
 
-                if (deletedBookings > 0)
-                {
-                    return Ok(new { 
-                        message = "Booking cancelled successfully", 
-                        refundInfo = "Refund will be processed within 2-3 working days",
-                        cancelledBooking = bookingInfo
-                    });
-                }
-                else
-                {
-                    return StatusCode(500, "Failed to delete booking from database");
-                }
+                return Ok(new { 
+                    message = "Cancellation request submitted successfully", 
+                    status = "RequestedToCancel",
+                    bookingId = id,
+                    note = "Flight owner will review your cancellation request and process the refund if approved."
+                });
             }
             catch (Exception ex)
             {
@@ -270,10 +245,10 @@ namespace SimplyFly.Api.Controllers
             }
         }
 
-        // DELETE: api/bookings/{id}/cancel (Alternative cancel booking endpoint)
-        [HttpDelete("{id}/cancel")]
-        [Authorize]
-        public async Task<IActionResult> CancelBookingAlternative(int id)
+        // DELETE: api/bookings/{id} (Hard delete - Admin only)
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> HardDeleteBooking(int id)
         {
             Console.WriteLine($"=== CANCEL ENDPOINT HIT: BookingId={id} ===");
             

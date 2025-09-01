@@ -193,9 +193,9 @@ namespace SimplyFly.Api.Controllers
                 }
 
                 if (string.IsNullOrEmpty(request.Role) || 
-                    !new[] { "User", "Admin", "FlightOwner" }.Contains(request.Role))
+                    !new[] { "User", "Admin", "Flightowner" }.Contains(request.Role))
                 {
-                    return BadRequest(new { message = "Invalid role. Valid roles are: User, Admin, FlightOwner" });
+                    return BadRequest(new { message = "Invalid role. Valid roles are: User, Admin, Flightowner" });
                 }
 
                 user.Role = request.Role;
@@ -265,7 +265,7 @@ namespace SimplyFly.Api.Controllers
                         bookingDate = b.TicketBookingDate,
                         ticketBookingDate = b.TicketBookingDate,
                         ticketBookingTime = b.TicketBookingTime.ToString(@"hh\:mm"),
-                        status = "Confirmed" // Default status since column might not exist yet
+                        status = "Confirmed" // Default status
                     };
                 }).ToList();
 
@@ -282,7 +282,32 @@ namespace SimplyFly.Api.Controllers
             }
         }
 
-        // DELETE: api/admin/booking/{id}
+        // PUT: api/admin/booking/{id}/cancel - Soft delete (update status)
+        [HttpPut("booking/{id}/cancel")]
+        public async Task<IActionResult> CancelBooking(int id)
+        {
+            try
+            {
+                var booking = await _context.Bookings.FindAsync(id);
+                if (booking == null)
+                {
+                    return NotFound(new { message = "Booking not found" });
+                }
+
+                booking.Status = "Cancelled";
+                booking.UpdatedAt = DateTime.Now;
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Booking cancelled successfully", bookingId = id, status = "Cancelled" });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Cancel booking error: {ex.Message}");
+                return StatusCode(500, new { message = "Error cancelling booking", error = ex.Message });
+            }
+        }
+
+        // DELETE: api/admin/booking/{id} - Hard delete (admin only)
         [HttpDelete("booking/{id}")]
         public async Task<IActionResult> DeleteBooking(int id)
         {
@@ -297,7 +322,7 @@ namespace SimplyFly.Api.Controllers
                 _context.Bookings.Remove(booking);
                 await _context.SaveChangesAsync();
 
-                return Ok(new { message = "Booking deleted successfully" });
+                return Ok(new { message = "Booking permanently deleted" });
             }
             catch (Exception ex)
             {
@@ -328,7 +353,8 @@ namespace SimplyFly.Api.Controllers
                     return BadRequest(new { message = "Invalid status. Valid statuses are: " + string.Join(", ", validStatuses) });
                 }
 
-                // booking.Status = request.Status; // Commented out until Status column is added
+                booking.Status = request.Status;
+                booking.UpdatedAt = DateTime.Now;
                 await _context.SaveChangesAsync();
                 
                 Console.WriteLine($"✅ Booking {id} status updated to {request.Status}");
@@ -341,34 +367,6 @@ namespace SimplyFly.Api.Controllers
             }
         }
 
-        // PUT: api/admin/bookings/{id}/cancel
-        [HttpPut("bookings/{id}/cancel")]
-        [AllowAnonymous]
-        public async Task<IActionResult> CancelBooking(int id)
-        {
-            try
-            {
-                Console.WriteLine($"🔵 CancelBooking called for booking {id}");
-                
-                var booking = await _context.Bookings.FindAsync(id);
-                if (booking == null)
-                {
-                    return NotFound(new { message = "Booking not found" });
-                }
-
-                // Mark as cancelled instead of deleting
-                // booking.Status = "Cancelled"; // Commented out until Status column is added
-                await _context.SaveChangesAsync();
-                
-                Console.WriteLine($"✅ Booking {id} cancelled successfully");
-                return Ok(new { message = "Booking cancelled successfully", bookingId = id });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ Error cancelling booking: {ex.Message}");
-                return StatusCode(500, new { message = "Internal server error", error = ex.Message });
-            }
-        }
 
         // GET: api/admin/bookings/{id}
         [HttpGet("bookings/{id}")]
@@ -406,8 +404,7 @@ namespace SimplyFly.Api.Controllers
                     arrivalTime = booking.ArrivalTime,
                     bookingDate = booking.TicketBookingDate,
                     ticketBookingTime = booking.TicketBookingTime.ToString(@"hh\:mm"),
-                    // status = booking.Status ?? "Confirmed", // Commented out until Status column is added
-                    status = "Confirmed", // Default status since column doesn't exist yet
+                    status = booking.Status ?? "Confirmed",
                     
                     // User information
                     userName = user?.Name ?? "Unknown User",

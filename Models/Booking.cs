@@ -43,14 +43,13 @@ namespace SimplyFly.Api.Models
         [Column(TypeName = "time")]
         public TimeSpan TicketBookingTime { get; set; } = DateTime.Now.TimeOfDay;
 
-        [Required]
         public DateTime DepartureTime { get; set; } // snapshot of when this flight departs
 
         [Required]
         public DateTime ArrivalTime { get; set; } // snapshot of when it arrives
 
-        // [MaxLength(50)]
-        // public string Status { get; set; } = "Confirmed"; // Status of the booking - COMMENTED OUT UNTIL MIGRATION
+        [MaxLength(50)]
+        public string Status { get; set; } = "Confirmed"; // Status of the booking
 
         [Column(TypeName = "datetime")]
         public DateTime CreatedAt { get; set; } = DateTime.Now;
