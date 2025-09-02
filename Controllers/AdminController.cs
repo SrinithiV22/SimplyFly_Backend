@@ -265,7 +265,7 @@ namespace SimplyFly.Api.Controllers
                         bookingDate = b.TicketBookingDate,
                         ticketBookingDate = b.TicketBookingDate,
                         ticketBookingTime = b.TicketBookingTime.ToString(@"hh\:mm"),
-                        status = "Confirmed" // Default status
+                        status = b.Status// Default status
                     };
                 }).ToList();
 

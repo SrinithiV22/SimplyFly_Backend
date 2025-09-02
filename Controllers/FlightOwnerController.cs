@@ -277,32 +277,30 @@ namespace SimplyFly.Api.Controllers
                 {
                     return Ok(new List<object>()); // Return empty list if user is not a flight owner
                 }
-
-                // Get bookings for flights owned by this flight owner
-                var bookings = await _context.Bookings
-                    .Include(b => b.User)
-                    .Where(b => _context.FlightDetails
-                        .Any(fd => fd.FlightOwnerId == flightOwner.FlightOwnerId && fd.FlightId == b.FlightId))
-                    .Select(b => new
+                // Get bookings for flights owned by this flight owner using a join
+                var bookings = await (from b in _context.Bookings
+                    join fd in _context.FlightDetails on b.FlightId equals fd.FlightId
+                    where fd.FlightOwnerId == flightOwner.FlightOwnerId
+                    select new
                     {
                         b.BookingId,
                         b.UserId,
                         UserName = b.User != null ? b.User.Name : "Unknown",
                         UserEmail = b.User != null ? b.User.Email : "Unknown",
                         b.FlightId,
-                        FlightName = _context.FlightDetails
-                            .Where(fd => fd.FlightId == b.FlightId && fd.FlightOwnerId == flightOwner.FlightOwnerId)
-                            .Select(fd => fd.FlightName)
-                            .FirstOrDefault(),
+                        FlightName = fd.FlightName,
                         BookingDate = b.TicketBookingDate,
                         PassengerCount = b.Passengers,
                         b.TotalAmount,
                         b.Route,
                         b.SelectedSeats,
                         b.TicketType,
-                        Status = "Confirmed" // Default status since we don't have status column yet
-                    })
-                    .ToListAsync();
+                        Status = b.Status,
+                        RequestedToCancel = b.Status == "RequestedToCancel",
+                        Refunded = b.Status == "Refunded",
+                        Cancelled = b.Status == "Cancelled",
+                        Confirmed = b.Status == "Confirmed"
+                    }).ToListAsync();
 
                 return Ok(bookings);
             }

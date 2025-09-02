@@ -114,6 +114,7 @@ namespace SimplyFly.Api.Controllers
                         b.Route,
                         b.DepartureTime,
                         b.ArrivalTime,
+                        Status = b.Status,
                         Flight = new
                         {
                             b.FlightDetails!.Id,
